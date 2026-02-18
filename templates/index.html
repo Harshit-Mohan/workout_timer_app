@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title>Shared Workout Timer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --text-main: #ffffff;
+            --text-muted: #888888;
+            --accent-green: #00ff88;
+            --btn-bg: #1e1e1e;
+            --btn-hover: #333333;
+        }
+
+        #bg-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0.3;
+            transition: background-image 1s ease-in-out;
+        }
+
+        body { 
+            background-color: var(--bg-color); 
+            color: var(--text-main); 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            text-align: center; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+            justify-content: center; 
+            min-height: 100vh; 
+            margin: 0; 
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* Menu Buttons */
+        .btn-start { 
+            background: linear-gradient(135deg, #00ff88 0%, #00cc66 100%);
+            color: #000;
+            font-size: 1.2rem; 
+            font-weight: bold;
+            padding: 20px; 
+            border: none; 
+            border-radius: 15px;
+            cursor: pointer; 
+            width: 100%;
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.2);
+            transition: transform 0.2s;
+        }
+        .btn-start:active { transform: scale(0.98); }
+
+        /* Workout UI */
+        #phase-title { 
+            font-size: 3rem; 
+            font-weight: 800; 
+            line-height: 1.1;
+            margin-bottom: 10px;
+        }
+        
+        #timer { 
+            font-size: 8rem; 
+            font-weight: 700; 
+            font-variant-numeric: tabular-nums;
+            margin: 10px 0;
+        }
+
+        #timer.timer-manual {
+            white-space: nowrap;
+        }
+        
+        #instruction { 
+            color: var(--text-muted); 
+            font-size: 1.5rem; 
+            min-height: 30px;
+            margin-bottom: 30px;
+        }
+
+        #progress {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            font-weight: bold;
+            margin-bottom: 5px;
+            min-height: 2rem;
+        }
+
+        #next-exercise {
+            color: var(--accent-green);
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            min-height: 2.5rem;
+        }
+
+        .controls-row { display: flex; gap: 15px; justify-content: center; }
+        
+        .btn-control { 
+            background-color: var(--btn-bg); 
+            color: var(--text-main); 
+            font-size: 1rem; 
+            padding: 15px 25px; 
+            border: 1px solid #333; 
+            border-radius: 50px;
+            cursor: pointer; 
+            font-weight: 600;
+            flex: 1;
+            transition: background 0.2s;
+        }
+        .btn-control:hover { background-color: var(--btn-hover); }
+        .btn-control:active { background-color: #444; }
+
+        @media (max-width: 480px) {
+            #phase-title { font-size: 2rem; }
+            #timer { font-size: 20vw; }
+        }
+
+        /* Editor Styles */
+        #editor { display: none; text-align: left; max-width: 800px; width: 100%; margin-bottom: 50px; }
+        .editor-section { background: #1e1e1e; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .editor-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        input, select { background: #333; color: white; border: 1px solid #555; padding: 8px; border-radius: 5px; }
+        input[type="text"] { flex: 2; }
+        input[type="number"] { flex: 1; }
+        .btn-small { padding: 5px 10px; font-size: 0.9rem; cursor: pointer; }
+        .btn-delete { background: #ff4444; color: white; border: none; border-radius: 5px; }
+        .btn-add { background: #444; color: white; border: 1px solid #666; width: 100%; margin-top: 10px; }
+        .btn-save { background: var(--accent-green); color: black; font-weight: bold; width: 100%; margin-top: 20px; padding: 10px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-edit-toggle { background: transparent; border: 1px solid #555; color: #888; margin-top: 30px; cursor: pointer; padding: 10px; width: 100%; }
+        
+        label { display: block; margin-bottom: 5px; color: #aaa; font-size: 0.9rem; }
+        .checkbox-group { display: flex; flex-direction: column; gap: 5px; max-height: 200px; overflow-y: auto; background: #222; padding: 10px; }
+        .checkbox-item { display: flex; align-items: center; gap: 10px; }
+
+        #btn-quit {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            display: none; /* Hidden by default on Menu */
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #555;
+            color: #888;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            z-index: 1000;
+            transition: all 0.2s;
+        }
+        #btn-quit:hover { border-color: #fff; color: #fff; background: rgba(50,50,50,0.8); }
+
+        #btn-help {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #555;
+            color: #888;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.2rem;
+            z-index: 1000;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #btn-help:hover { border-color: #fff; color: #fff; background: rgba(50,50,50,0.8); }
+
+        #btn-settings {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #555;
+            color: #888;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.2rem;
+            z-index: 1000;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #btn-settings:hover { border-color: #fff; color: #fff; background: rgba(50,50,50,0.8); }
+
+        #help-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .help-content {
+            background: #1e1e1e;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            text-align: left;
+            position: relative;
+            border: 1px solid #333;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .help-content h2 { margin-top: 0; color: var(--accent-green); border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+        .help-content h3 { color: #fff; margin-top: 20px; margin-bottom: 10px; font-size: 1.1rem; }
+        .help-content ul, .help-content ol { padding-left: 20px; color: #ccc; line-height: 1.6; }
+        .help-content li { margin-bottom: 8px; }
+        .help-content p { color: #ccc; line-height: 1.6; }
+        
+        .btn-close-help {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: transparent;
+            border: none;
+            color: #888;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px;
+        }
+        .btn-close-help:hover { color: #fff; }
+    </style>
+</head>
+<body>
+
+    <div id="bg-layer"></div>
+    <button id="btn-help" onclick="toggleHelp()">?</button>
+    <button id="btn-settings" onclick="toggleSettings()">⚙</button>
+    <button id="btn-quit" onclick="handleQuit()">✕ QUIT</button>
+
+    <div id="menu" class="container">
+        <h1>Select Routine</h1>
+        <div id="menu-buttons"></div>
+        <button class="btn-edit-toggle" onclick="toggleEditor()">🛠 MODIFY / ADD ROUTINES</button>
+    </div>
+
+    <div id="editor" class="container">
+        <h1>Editor</h1>
+        
+        <!-- Base Routine Editor -->
+        <div class="editor-section">
+            <h2>1. Edit Exercises (Base Routines)</h2>
+            <label>Select Routine to Edit or Create New:</label>
+            <div class="editor-row">
+                <select id="base-select" onchange="loadBaseRoutine()"></select>
+                <input type="text" id="base-name" placeholder="Routine Name (e.g. leg_day)">
+            </div>
+            <div id="base-rows"></div>
+            <button class="btn-small btn-add" onclick="addBaseRow()">+ Add Exercise Step</button>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn-save" onclick="saveBaseRoutine()" style="margin-top: 0; flex: 1;">SAVE EXERCISES</button>
+                <button id="btn-delete-base" class="btn-delete" onclick="deleteBaseRoutine()" style="display: none; padding: 10px 20px; font-weight: bold;">DELETE</button>
+            </div>
+        </div>
+
+        <!-- Workout Config Editor -->
+        <div class="editor-section">
+            <h2>2. Create Workout Menu Item</h2>
+            <label>Select Workout to Edit or Create New:</label>
+            <div class="editor-row">
+                <select id="workout-select" onchange="loadWorkoutConfig()"></select>
+                <input type="text" id="workout-key" placeholder="ID (e.g. full_body)">
+            </div>
+            <label>Display Label:</label>
+            <input type="text" id="workout-label" placeholder="Button Text (e.g. FULL BODY BLAST)" style="width: 100%; box-sizing: border-box; margin-bottom: 10px;">
+            
+            <label>Include these routines (in order):</label>
+            <div id="workout-sequence" class="checkbox-group"></div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn-save" onclick="saveWorkoutConfig()" style="margin-top: 0; flex: 1;">SAVE WORKOUT MENU</button>
+                <button id="btn-delete-workout" class="btn-delete" onclick="deleteWorkoutConfig()" style="display: none; padding: 10px 20px; font-weight: bold;">DELETE</button>
+            </div>
+        </div>
+
+        <button class="btn-edit-toggle" onclick="toggleEditor()">← BACK TO MENU</button>
+    </div>
+
+    <div id="workout" class="container" style="display:none;">
+        <div id="progress"></div>
+        <div id="phase-title">READY</div>
+        <div id="timer">00:00</div>
+        <div id="next-exercise"></div>
+        <div id="instruction"></div>
+        
+        <div class="controls-row">
+            <button class="btn-control" onclick="socket.emit('previous')">⏮ PREV</button>
+            <button class="btn-control" onclick="socket.emit('pause')">⏯ PAUSE</button>
+            <button class="btn-control" onclick="socket.emit('next')">NEXT ⏭</button>
+        </div>
+    </div>
+
+    <div id="help-modal">
+        <div class="help-content">
+            <button class="btn-close-help" onclick="toggleHelp()">✕</button>
+            <h2>How to Use</h2>
+            
+            <h3>Workout Controls</h3>
+            <ul>
+                <li><strong>⏮ PREV (Left Arrow):</strong> Go back to the previous exercise.</li>
+                <li><strong>⏯ PAUSE (Spacebar):</strong> Pause or Resume the timer for everyone.</li>
+                <li><strong>NEXT ⏭ (Right Arrow):</strong> Skip the current exercise or rest period.</li>
+                <li><strong>✕ QUIT (Esc):</strong> Exit the workout and return to the main menu.</li>
+            </ul>
+
+            <h3>Routine Editor</h3>
+            <p>Click <strong>🛠 MODIFY / ADD ROUTINES</strong> on the menu.</p>
+            <ol>
+                <li><strong>Edit Exercises:</strong> Create lists of exercises (e.g., "Leg Day").</li>
+                <li><strong>Create Workout:</strong> Combine lists into a menu button.</li>
+                <li><strong>Save:</strong> Changes are saved to your browser automatically.</li>
+            </ol>
+            
+            <h3>Syncing</h3>
+            <p>The timer is synchronized in real-time. If you pause, it pauses for your partner too. Custom routines are saved to your browser and synced to the server automatically.</p>
+
+            <h3>Pinterest Backgrounds</h3>
+            <p>Click the <strong>⚙</strong> button to configure.</p>
+            <p>Paste a public Pinterest Board URL to cycle through images during your workout.</p>
+        </div>
+    </div>
+
+    <div id="settings-modal">
+        <div class="help-content">
+            <button class="btn-close-help" onclick="toggleSettings()">✕</button>
+            <h2>Settings</h2>
+            <label>Pinterest Board URL (Public):</label>
+            <input type="text" id="pinterest-url" placeholder="https://www.pinterest.com/username/boardname/" style="width: 100%; box-sizing: border-box; margin-bottom: 10px; background: #333; color: white; border: 1px solid #555; padding: 8px; border-radius: 5px;">
+            <button class="btn-save" onclick="saveSettings()">SAVE SETTINGS</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playTone(freq, type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type || 'sine';
+            osc.frequency.value = freq;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5);
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        // Initial Load
+        socket.on('connect', () => {
+            socket.emit('get_menu_data');
+        });
+
+        socket.on('update', function(data) {
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('workout').style.display = 'flex';
+            document.getElementById('btn-quit').style.display = 'block';
+
+            const titleEl = document.getElementById('phase-title');
+            const timerEl = document.getElementById('timer');
+            
+            titleEl.innerText = data.title;
+            titleEl.style.color = data.color;
+            
+            timerEl.innerText = data.time;
+            timerEl.style.color = data.color;
+
+            if (data.is_manual) {
+                timerEl.classList.add('timer-manual');
+                // Calculate available width (Container max 600px - padding)
+                const clientWidth = document.documentElement.clientWidth || window.innerWidth;
+                const availableWidth = Math.min(clientWidth - 40, 600);
+                // Estimate font size: Width / (Chars * AvgCharWidthRatio for Bold Uppercase)
+                const fontSize = availableWidth / (Math.max(1, data.time.length) * 0.7);
+                timerEl.style.fontSize = `${Math.min(96, fontSize)}px`;
+            } else {
+                timerEl.classList.remove('timer-manual');
+                timerEl.style.fontSize = '';
+            }
+
+            document.getElementById('next-exercise').innerText = data.next_exercise || "";
+
+            document.getElementById('progress').innerText = data.progress;
+
+            document.getElementById('instruction').innerText = 
+                (data.paused ? "⏸ PAUSED" : "") + " " + data.instruction;
+        });
+
+        socket.on('beep', function(data) {
+            if(data.type === 'warning') playTone(1500, 'square'); // High beep
+            if(data.type === 'start') playTone(800, 'sine');    // Start beep
+            if(data.type === 'rest') playTone(400, 'sine');     // Low beep
+        });
+
+        socket.on('speak', function(data) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(data.text);
+            window.speechSynthesis.speak(utterance);
+            updateBackground();
+        });
+
+        socket.on('return_to_menu', function() {
+            document.getElementById('workout').style.display = 'none';
+            document.getElementById('menu').style.display = 'flex';
+            document.getElementById('btn-quit').style.display = 'none';
+        });
+
+        // --- Menu Logic ---
+        socket.on('menu_data', function(configs) {
+            const container = document.getElementById('menu-buttons');
+            container.innerHTML = '';
+            for (const [key, config] of Object.entries(configs)) {
+                const btn = document.createElement('button');
+                btn.className = 'btn-start';
+                btn.innerText = config.label;
+                btn.onclick = () => startRoutine(key);
+                btn.style.marginBottom = '15px';
+                container.appendChild(btn);
+            }
+        });
+
+        // --- Editor Logic ---
+        let editorData = {};
+
+        function toggleEditor() {
+            const menu = document.getElementById('menu');
+            const editor = document.getElementById('editor');
+            if (editor.style.display === 'none' || !editor.style.display) {
+                menu.style.display = 'none';
+                editor.style.display = 'block';
+                socket.emit('get_editor_data');
+                document.getElementById('btn-quit').style.display = 'block';
+            } else {
+                menu.style.display = 'flex';
+                editor.style.display = 'none';
+                document.getElementById('btn-quit').style.display = 'none';
+            }
+        }
+
+        socket.on('editor_data', function(data) {
+            editorData = data;
+            populateBaseSelect();
+            populateWorkoutSelect();
+        });
+
+        socket.on('editor_save_success', function(data) {
+            if (data && (data.type === 'base_deleted' || data.type === 'workout_deleted')) {
+                alert("Deleted successfully!");
+            } else {
+                alert("Saved successfully!");
+            }
+            socket.emit('get_editor_data'); // Refresh data
+        });
+
+        // Base Routine Functions
+        function populateBaseSelect() {
+            const sel = document.getElementById('base-select');
+            sel.innerHTML = '<option value="">-- New Routine --</option>';
+            for (const key of Object.keys(editorData.base_routines)) {
+                sel.innerHTML += `<option value="${key}">${key}</option>`;
+            }
+        }
+
+        function loadBaseRoutine() {
+            const key = document.getElementById('base-select').value;
+            const nameInput = document.getElementById('base-name');
+            const container = document.getElementById('base-rows');
+            container.innerHTML = '';
+
+            if (key && editorData.base_routines[key]) {
+                nameInput.value = key;
+                editorData.base_routines[key].forEach(step => addBaseRow(step[0], step[1], step[2]));
+                document.getElementById('btn-delete-base').style.display = 'block';
+            } else {
+                nameInput.value = '';
+                addBaseRow();
+                document.getElementById('btn-delete-base').style.display = 'none';
+            }
+        }
+
+        function addBaseRow(name='', time='', type='work') {
+            const div = document.createElement('div');
+            div.className = 'editor-row';
+            div.innerHTML = `
+                <input type="text" placeholder="Exercise Name" value="${name}">
+                <input type="number" placeholder="Secs" value="${time === null ? '' : time}">
+                <select>
+                    <option value="work" ${type==='work'?'selected':''}>Work</option>
+                    <option value="rest" ${type==='rest'?'selected':''}>Rest</option>
+                    <option value="prep" ${type==='prep'?'selected':''}>Prep</option>
+                    <option value="manual" ${type==='manual'?'selected':''}>Manual</option>
+                </select>
+                <button class="btn-delete" onclick="this.parentElement.remove()">X</button>
+            `;
+            document.getElementById('base-rows').appendChild(div);
+        }
+
+        function saveBaseRoutine() {
+            const name = document.getElementById('base-name').value;
+            if (!name) return alert("Please enter a routine name");
+            
+            const rows = document.querySelectorAll('#base-rows .editor-row');
+            const phases = [];
+            rows.forEach(row => {
+                const inputs = row.querySelectorAll('input, select');
+                const tVal = inputs[1].value;
+                phases.push([inputs[0].value, tVal === '' ? null : parseInt(tVal), inputs[2].value]);
+            });
+            
+            socket.emit('save_base_routine', {name: name, phases: phases});
+        }
+
+        function deleteBaseRoutine() {
+            const name = document.getElementById('base-name').value;
+            if (!name) return;
+            if (confirm(`Delete routine "${name}"? This cannot be undone.`)) {
+                socket.emit('delete_base_routine', {name: name});
+            }
+        }
+
+        // Workout Config Functions
+        function populateWorkoutSelect() {
+            const sel = document.getElementById('workout-select');
+            sel.innerHTML = '<option value="">-- New Workout --</option>';
+            for (const key of Object.keys(editorData.workout_configs)) {
+                sel.innerHTML += `<option value="${key}">${editorData.workout_configs[key].label}</option>`;
+            }
+            renderSequenceCheckboxes([]);
+        }
+
+        function loadWorkoutConfig() {
+            const key = document.getElementById('workout-select').value;
+            const config = editorData.workout_configs[key];
+            
+            document.getElementById('workout-key').value = key || '';
+            document.getElementById('workout-label').value = config ? config.label : '';
+            renderSequenceCheckboxes(config ? config.sequence : []);
+            document.getElementById('btn-delete-workout').style.display = config ? 'block' : 'none';
+        }
+
+        function renderSequenceCheckboxes(activeSequence) {
+            const container = document.getElementById('workout-sequence');
+            container.innerHTML = '';
+            // List all available base routines
+            for (const baseKey of Object.keys(editorData.base_routines)) {
+                const isChecked = activeSequence.includes(baseKey);
+                const div = document.createElement('div');
+                div.className = 'checkbox-item';
+                div.innerHTML = `
+                    <input type="checkbox" value="${baseKey}" ${isChecked ? 'checked' : ''}>
+                    <label>${baseKey}</label>
+                `;
+                container.appendChild(div);
+            }
+        }
+
+        function saveWorkoutConfig() {
+            const key = document.getElementById('workout-key').value;
+            const label = document.getElementById('workout-label').value;
+            if (!key || !label) return alert("Please enter ID and Label");
+
+            const checkboxes = document.querySelectorAll('#workout-sequence input:checked');
+            const sequence = Array.from(checkboxes).map(cb => cb.value);
+            
+            socket.emit('save_workout_config', {key: key, label: label, sequence: sequence});
+        }
+
+        function deleteWorkoutConfig() {
+            const key = document.getElementById('workout-key').value;
+            if (!key) return;
+            if (confirm(`Delete workout "${key}"? This cannot be undone.`)) {
+                socket.emit('delete_workout_config', {key: key});
+            }
+        }
+
+        function saveSettings() {
+            const url = document.getElementById('pinterest-url').value;
+            socket.emit('save_settings', {pinterest_url: url});
+        }
+
+        socket.on('settings_data', function(data) {
+            document.getElementById('pinterest-url').value = data.pinterest_url || '';
+        });
+
+        function startRoutine(routine) {
+            socket.emit('start_routine', {routine: routine});
+        }
+
+        function handleQuit() {
+            const workout = document.getElementById('workout');
+            const editor = document.getElementById('editor');
+            
+            if (workout.style.display === 'flex') {
+                socket.emit('quit_workout');
+            } else if (editor.style.display === 'block') {
+                toggleEditor();
+            }
+        }
+
+        function toggleHelp() {
+            const modal = document.getElementById('help-modal');
+            modal.style.display = (modal.style.display === 'none' || !modal.style.display) ? 'flex' : 'none';
+        }
+
+        function toggleSettings() {
+            const modal = document.getElementById('settings-modal');
+            modal.style.display = (modal.style.display === 'none' || !modal.style.display) ? 'flex' : 'none';
+            if (modal.style.display === 'flex') {
+                socket.emit('get_settings');
+            }
+        }
+
+        document.addEventListener('keydown', function(event) {
+            const helpModal = document.getElementById('help-modal');
+            const settingsModal = document.getElementById('settings-modal');
+            
+            if (helpModal.style.display === 'flex') {
+                if (event.code === 'Escape') toggleHelp();
+                return;
+            }
+            if (settingsModal.style.display === 'flex') {
+                if (event.code === 'Escape') toggleSettings();
+                return;
+            }
+
+            if (event.code === 'Escape') {
+                handleQuit();
+                return;
+            }
+
+            // Workout specific controls
+            if (document.getElementById('workout').style.display === 'flex') {
+                if (event.code === 'Space') {
+                    event.preventDefault();
+                    socket.emit('pause');
+                } else if (event.code === 'ArrowRight') {
+                    socket.emit('next');
+                } else if (event.code === 'ArrowLeft') {
+                    socket.emit('previous');
+                }
+            }
+        });
+
+        // --- Background Slideshow Logic ---
+        let bgImages = [];
+        let bgIndex = 0;
+
+        socket.on('pinterest_images', function(images) {
+            bgImages = images;
+            bgIndex = 0;
+            if (bgImages.length > 0) {
+                updateBackground();
+            }
+        });
+
+        function updateBackground() {
+            if (bgImages.length === 0) return;
+            const url = bgImages[bgIndex % bgImages.length];
+            document.getElementById('bg-layer').style.backgroundImage = `url('${url}')`;
+            bgIndex++;
+        }
+    </script>
+</body>
+</html>

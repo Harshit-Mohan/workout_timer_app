@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+venv/
+.env
+workout_data.json
+.DS_Store
