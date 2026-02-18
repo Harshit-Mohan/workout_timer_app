@@ -27,27 +27,6 @@ A real-time, synchronized workout timer built with Python (Flask + Socket.IO). D
 3.  **Access:**
     Open your browser to `http://localhost:5000`.
 
-## Deployment
-
-### Google Cloud Run (Recommended)
-This allows you to have a permanent public URL to share.
-
-1.  Install the Google Cloud CLI.
-2.  Run the deploy command:
-    ```bash
-    gcloud run deploy workout-timer --source . --max-instances=1 --allow-unauthenticated --region us-central1
-    ```
-    *Note: `--max-instances=1` is crucial to ensure all users connect to the same timer instance.*
-
-### ngrok (Temporary / No Cloud Account)
-If you just want to share it quickly from your laptop:
-
-1.  Start the app locally (`python main.py`).
-2.  Run ngrok:
-    ```bash
-    ngrok http 5000
-    ```
-3.  Share the generated `https://...ngrok-free.app` link.
 
 ## User Guide
 
