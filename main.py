@@ -14,7 +14,11 @@ from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+# The ping_timeout and ping_interval are important for deployed environments.
+# A long ping_timeout ensures that temporary network issues don't disconnect the client.
+# The ping_interval ensures that traffic is flowing to prevent proxies from closing
+# the connection due to inactivity.
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet', ping_timeout=60, ping_interval=25)
 
 # ================= DYNAMIC DATA STORE =================
 # Base building blocks (Lists of exercises)
