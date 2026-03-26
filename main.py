@@ -162,7 +162,7 @@ WORKOUT_CONFIGS = {
 
 # Global Settings
 SETTINGS = {
-    "pinterest_url": ""
+    "pinterest_url": "https://in.pinterest.com/angelinannjacob/pin-paper-posts/"
 }
 IMAGE_CACHE = {}
 
