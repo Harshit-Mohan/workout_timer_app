@@ -393,6 +393,35 @@
         const socket = io();
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+        // --- Render Keep-Alive & Wake Lock Logic ---
+        let wakeLock = null;
+
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log("Wake Lock is active");
+                }
+            } catch (err) {
+                console.error(`${err.name}, ${err.message}`);
+            }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release();
+                wakeLock = null;
+                console.log("Wake Lock released");
+            }
+        }
+
+        // Periodically send a heartbeat to prevent Render from idling
+        setInterval(() => {
+            if (socket.connected) {
+                socket.emit('heartbeat');
+            }
+        }, 30000); // Every 30 seconds
+
         function playTone(freq, type) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
             const osc = audioCtx.createOscillator();
@@ -463,6 +492,7 @@
             document.getElementById('workout').style.display = 'none';
             document.getElementById('menu').style.display = 'flex';
             document.getElementById('btn-quit').style.display = 'none';
+            releaseWakeLock();
         });
 
         // --- Menu Logic ---
@@ -644,6 +674,7 @@
 
         function startRoutine(routine) {
             socket.emit('start_routine', {routine: routine});
+            requestWakeLock();
         }
 
         function handleQuit() {
@@ -652,6 +683,7 @@
             
             if (workout.style.display === 'flex') {
                 socket.emit('quit_workout');
+                releaseWakeLock();
             } else if (editor.style.display === 'block') {
                 toggleEditor();
             }

@@ -471,6 +471,11 @@ def fetch_and_broadcast_images(url):
 def handle_get_settings():
     emit('settings_data', SETTINGS)
 
+@socketio.on('heartbeat')
+def handle_heartbeat():
+    """Simple endpoint to keep the connection active on deployment platforms."""
+    pass
+
 @socketio.on('save_settings')
 def handle_save_settings(data):
     url = data.get('pinterest_url', '').strip()
