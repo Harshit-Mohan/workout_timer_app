@@ -94,7 +94,54 @@ BASE_ROUTINES = {
         ("BICEP PULL UP × 5", None, "manual"), ("REST", 120, "rest"),
         ("BICEP PULL UP × 5", None, "manual"), ("REST", 120, "rest"),
         ("BICEP PULL UP HOLD", 30, "work"), ("REST", 120, "rest")
-    ]
+    ],
+
+    "failure_routine": [
+
+    # WARM-UP
+    ("GET READY FOR WARM-UP", 15, "prep"),
+    ("JUMPING JACKS", 60, "work"),
+    ("ARM CIRCLES", 30, "work"),
+    ("BODYWEIGHT SQUATS x15", None, "manual"),
+    ("INCHWORMS x10", None, "manual"),
+    ("LIGHT PUSHUPS x10", None, "manual"),
+
+    # LEGS (mechanical drop set)
+    ("GET READY FOR LUNGES", 60, "prep"),
+    ("STEP-BACK LUNGES (LEFT)", None, "manual"),
+    ("STEP-BACK LUNGES (RIGHT)", None, "manual"),
+    ("IMMEDIATELY BODYWEIGHT SQUATS", None, "manual"),
+    ("REST", 120, "rest"),
+    ("STEP-BACK LUNGES (LEFT)", None, "manual"),
+    ("STEP-BACK LUNGES (RIGHT)", None, "manual"),
+    ("IMMEDIATELY BODYWEIGHT SQUATS", None, "manual"),
+
+    # PUSH (drop set)
+    ("GET READY FOR PUSHUPS", 120, "prep"),
+    ("DECLINE PUSHUPS", None, "manual"),
+    ("REST", 120, "rest"),
+    ("DECLINE PUSHUPS", None, "manual"),
+
+    # PULL (slow + hold)
+    ("GET READY FOR TOWEL ROWS", 120, "prep"),
+    ("TOWEL ROWS (SLOW + 2s HOLD)", None, "manual"),
+    ("REST", 120, "rest"),
+    ("TOWEL ROWS (SLOW + 2s HOLD)", None, "manual"),
+
+    # CORE (hard combo)
+    ("GET READY FOR CORE", 120, "prep"),
+    ("V-UPS", None, "manual"),
+    ("IMMEDIATELY HOLLOW HOLD", None, "manual"),
+    ("REST", 60, "rest"),
+    ("V-UPS", None, "manual"),
+    ("IMMEDIATELY HOLLOW HOLD", None, "manual"),
+
+    # LOWER BACK
+    ("GET READY SUPERMAN HOLD", 120, "prep"),
+    ("SUPERMAN HOLD", None, "manual"),
+    ("REST", 60, "rest"),
+    ("SUPERMAN HOLD", None, "manual"),
+]
 }
 
 # Menu configurations (Combinations of base routines)
@@ -106,6 +153,10 @@ WORKOUT_CONFIGS = {
     "deadhang": {
         "label": "DEADHANG PRACTICE",
         "sequence": ["deadhang_routine"]
+    },
+    "short": {
+        "label": "SHORT WORKOUT",
+        "sequence": ["failure_routine"]
     }
 }
 
