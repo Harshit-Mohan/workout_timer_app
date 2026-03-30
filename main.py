@@ -138,9 +138,9 @@ BASE_ROUTINES = {
 
     # LOWER BACK
     ("GET READY SUPERMAN HOLD", 120, "prep"),
-    ("SUPERMAN HOLD", None, "manual"),
+    ("SUPERMAN HOLD", 60, "work"),
     ("REST", 60, "rest"),
-    ("SUPERMAN HOLD", None, "manual"),
+    ("SUPERMAN HOLD", 60, "work"),
 ]
 }
 
