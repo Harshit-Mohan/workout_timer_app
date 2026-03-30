@@ -131,10 +131,10 @@ BASE_ROUTINES = {
     # CORE (hard combo)
     ("GET READY FOR CORE", 120, "prep"),
     ("V-UPS", None, "manual"),
-    ("IMMEDIATELY HOLLOW HOLD", None, "manual"),
+    ("IMMEDIATELY HOLLOW HOLD", 60, "work"),
     ("REST", 60, "rest"),
     ("V-UPS", None, "manual"),
-    ("IMMEDIATELY HOLLOW HOLD", None, "manual"),
+    ("IMMEDIATELY HOLLOW HOLD", 60, "work"),
 
     # LOWER BACK
     ("GET READY SUPERMAN HOLD", 120, "prep"),
